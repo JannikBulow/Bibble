@@ -25,7 +25,7 @@ It should soon be on the AUR, but I still recommend downloading from this reposi
 
 ### X86-64
 ```shell
-curl -fL https://github.com/JannikBulow/Bibble/releases/latest/download/bibble-x86_64.pkg.tar.zst -o /tmp/bibble.pkg.tar.zst && sudo pacman -U /tmp/bibble.pkg.tar.zst
+curl -fL https://github.com/JannikBulow/Bibble/releases/download/v0.1.0/bibble-0.1.0-1-x86_64.pkg.tar.zst -o /tmp/bibble.pkg.tar.zst && sudo pacman -U /tmp/bibble.pkg.tar.zst
 ```
 
 ### ARM
