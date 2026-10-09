@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+include("${CMAKE_CURRENT_LIST_DIR}/../BibbleBytecode/BibbleBytecodeTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../BibbleOpcodes/BibbleOpcodesTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../BibbleVM/BibbleVMTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../BibbleASM/BibbleASMTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../BibblIR/BibblIRTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../BibbleC/BibbleCTargets.cmake")
