@@ -12,6 +12,7 @@ set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
 include(CMakePackageConfigHelpers)
 include(CPack)
+include(CTest)
 include (FetchContent)
 
 FetchContent_Declare(BibbleBytecode

@@ -1,2 +1,9 @@
 .idea/
 build/
+cmake-*/
+pkg/
+pkgroot/
+src/
+
+bibble-*.tar.gz
+bibble-*.pkg.tar.zst
