@@ -9,7 +9,7 @@ No.
 ## Debian / Ubuntu
 ### X86-64
 ```shell
-curl -fL https://github.com/JannikBulow/Bibble/releases/download/v0.1.0/bibble_0.1.0_x86_64.deb -o /tmp/bibble.deb && sudo apt install /tmp/bibble.deb
+curl -fL https://github.com/JannikBulow/Bibble/releases/latest/download/bibble_x86_64.deb -o /tmp/bibble.deb && sudo apt install /tmp/bibble.deb
 ```
 
 ### ARM
