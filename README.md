@@ -23,13 +23,9 @@ sudo apt remove bibble
 ## Arch
 It should soon be on the AUR, but I still recommend downloading from this repository as the AUR is known to be full of malware and malicious freaks.
 
-### X86-64
 ```shell
-curl -fL https://github.com/JannikBulow/Bibble/releases/download/v0.1.0/bibble-0.1.0-1-x86_64.pkg.tar.zst -o /tmp/bibble.pkg.tar.zst && sudo pacman -U /tmp/bibble.pkg.tar.zst
+git clone https://github.com/JannikBulow/Bibble.git /tmp/bibble && cd /tmp/bibble && makepkg -si
 ```
-
-### ARM
-There is no official arm build. See [Build from source](#build-from-source)
 
 ### To uninstall
 ```shell
