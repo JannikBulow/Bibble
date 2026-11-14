@@ -126,7 +126,7 @@ jobs:
           }
 
       - name: Build Bibble
-        run: cmake --build build --config Release --parallel 2
+        run: cmake --build build --config Release -j
 
       # Test Linux installation
       - name: Test Bibble (Linux)
@@ -134,6 +134,9 @@ jobs:
         shell: bash
         run: |
           cmake --install build --prefix "$PWD/test-install"
+          
+          export LD_LIBRARY_PATH="$PWD/test-install/lib:${LD_LIBRARY_PATH:-}"
+          
           ./test-install/bin/bibble --version
 
       # Test Windows installation
