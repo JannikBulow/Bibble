@@ -4,7 +4,7 @@
 Installation is very straightforward.
 
 ## Windows
-No.
+Download from [releases](https://github.com/JannikBulow/Bibble/releases)
 
 ## Debian / Ubuntu
 ### X86-64
