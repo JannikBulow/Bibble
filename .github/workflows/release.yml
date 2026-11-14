@@ -1,0 +1,216 @@
+
+name: Release Bibble
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-2022
+
+    steps:
+      - name: Checkout Bibble
+        uses: actions/checkout@v4
+
+      # Linux dependencies
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm
+
+      # Windows dependencies
+      - name: Install NASM
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nasm -y --no-progress
+          $nasmDir = "C:\Program Files\NASM"
+          if (Test-Path $nasmDir) {
+            $nasmDir >> $env:GITHUB_PATH
+          }
+
+      - name: Install NSIS EnVar plugin
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $zip = Join-Path $env:RUNNER_TEMP "EnVar_plugin.zip"
+          $extract = Join-Path $env:RUNNER_TEMP "EnVar"
+
+          Invoke-WebRequest `
+            -Uri "https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip" `
+            -OutFile $zip
+
+          Expand-Archive -Path $zip -DestinationPath $extract -Force
+
+          $nsisExe = @(
+            "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+            "$env:ProgramFiles\NSIS\makensis.exe"
+          ) | Where-Object { Test-Path $_ } |
+              Select-Object -First 1
+
+          if (-not $nsisExe) {
+            $command = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            if ($command) {
+              $nsisExe = $command.Source
+            }
+          }
+
+          if (-not $nsisExe) {
+            throw "NSIS makensis.exe not found"
+          }
+
+          $nsisDir = Split-Path $nsisExe
+          $source = Join-Path $extract "Plugins\x86-unicode\EnVar.dll"
+          $destination = Join-Path $nsisDir "Plugins\x86-unicode"
+
+          if (-not (Test-Path $source)) {
+            throw "EnVar.dll was not found in the downloaded archive"
+          }
+
+          New-Item -ItemType Directory -Force -Path $destination |
+            Out-Null
+
+          Copy-Item $source $destination -Force
+
+          if (-not (Test-Path (Join-Path $destination "EnVar.dll"))) {
+            throw "EnVar installation failed"
+          }
+
+          Write-Host "EnVar installed successfully"
+
+      # Configure Linux
+      - name: Configure Bibble (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          cmake -S . -B build \
+            -G Ninja \
+            -DBIBBLE_VERSION="$VERSION" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF
+
+      # Configure Windows
+      - name: Configure Bibble (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+
+          cmake -S . -B build `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -T ClangCL `
+            "-DBIBBLE_VERSION=$version" `
+            -DBUILD_TESTING=OFF
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows configuration failed"
+          }
+
+      - name: Build Bibble
+        run: cmake --build build --config Release --parallel 2
+
+      # Test Linux installation
+      - name: Test Bibble (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cmake --install build --prefix "$PWD/test-install"
+          ./test-install/bin/bibble --version
+
+      # Test Windows installation
+      - name: Test Bibble (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --install build --config Release `
+            --prefix "$PWD/test-install"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows installation test failed"
+          }
+
+          & "$PWD/test-install/bin/bibble.exe" --version
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Bibble executable test failed"
+          }
+
+      # Linux .deb
+      - name: Create Debian package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p dist
+
+          cpack \
+            --config build/CPackConfig.cmake \
+            -G DEB \
+            -B dist
+
+      # Windows .exe
+      - name: Create Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist |
+            Out-Null
+
+          cpack `
+            --config build/CPackConfig.cmake `
+            -G NSIS `
+            -C Release `
+            -B dist
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows installer generation failed"
+          }
+
+      # Upload packages
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: bibble-${{ runner.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bibble-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
