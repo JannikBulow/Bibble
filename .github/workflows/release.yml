@@ -4,9 +4,18 @@ on:
   push:
     tags:
       - "v*"
+
+  schedule:
+    - cron: "0 4 * * *"
+
   workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: bibble-releases
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,6 +32,22 @@ jobs:
     steps:
       - name: Checkout Bibble
         uses: actions/checkout@v4
+
+      - name: Determine Bibble version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            TAG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')
+            VERSION="${TAG#v}.${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building Bibble version $VERSION"
 
       # Linux dependencies
       - name: Install Linux dependencies
@@ -98,14 +123,9 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then
-            VERSION="0.1.0"
-          fi
-
           cmake -S . -B build \
             -G Ninja \
-            -DBIBBLE_VERSION="$VERSION" \
+            -DBIBBLE_VERSION="${{ steps.version.outputs.version }}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=OFF
 
@@ -114,17 +134,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $version = if ($env:GITHUB_REF_TYPE -eq "tag") {
-            $env:GITHUB_REF_NAME -replace '^v', ''
-          } else {
-            "0.1.0"
-          }
-
           cmake -S . -B build `
             -G "Visual Studio 17 2022" `
             -A x64 `
             -T ClangCL `
-            "-DBIBBLE_VERSION=$version" `
+            "-DBIBBLE_VERSION=${{ steps.version.outputs.version }}" `
             -DBUILD_TESTING=OFF
 
           if ($LASTEXITCODE -ne 0) {
@@ -201,9 +215,9 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+
   release:
     name: Publish GitHub Release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-24.04
 
@@ -218,9 +232,57 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
+      # Stable release
+      - name: Publish stable release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           fail_on_unmatched_files: true
           generate_release_notes: true
+
+      # Rolling nightly release
+      - name: Publish nightly release
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: nightly
+          name: Bibble Nightly
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          files: dist/*
+          fail_on_unmatched_files: true
+          body: |
+            ## Bibble Nightly
+
+            This is an automatically generated development build.
+
+            **Commit:** `${{ github.sha }}`
+            **Build:** #${{ github.run_number }}
+
+            ### Downloads
+
+            - Windows: `bibble_x86_64.exe`
+            - Debian / Ubuntu: `bibble_x86_64.deb`
+
+            ### Warning
+
+            Nightly builds may contain unfinished features,
+            bugs, or breaking changes.
+
+            For a stable version, use the latest official release.
+
+      # Move the nightly tag to the current commit
+      - name: Update nightly tag
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api \
+            --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/git/refs/tags/nightly" \
+            -f sha="${GITHUB_SHA}" \
+            -F force=true
