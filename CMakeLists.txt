@@ -75,6 +75,8 @@ install(
 if(WIN32)
     set(CPACK_GENERATOR "NSIS")
 
+    set(CPACK_PACKAGE_FILE_NAME "bibble_x86_64")
+
     set(CPACK_NSIS_DISPLAY_NAME "Bibble")
     set(CPACK_PACKAGE_INSTALL_DIRECTORY "Bibble")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
@@ -101,21 +103,14 @@ if(WIN32)
     set(CPACK_VERBATIM_VARIABLES ON)
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CPACK_PACKAGE_FILE_NAME "bibble_x86_64")
     set(CPACK_GENERATOR "TGZ")
 
-    if(EXISTS "/etc/arch-release")
-        # arch
-    elseif(EXISTS "/etc/debian_version")
-        # debian/ubuntu
+    if(EXISTS "/etc/debian_version")
         set(CPACK_GENERATOR "DEB;TGZ")
-
         set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Jannik Bülow")
         set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-        set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-    else()
-        set(CPACK_GENERATOR "TGZ")
     endif()
 endif()
-
 set(CPACK_VERBATIM_VARIABLES ON)
 include(CPack)
