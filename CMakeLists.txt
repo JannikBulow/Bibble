@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.26)
 
 if(NOT DEFINED BIBBLE_VERSION OR BIBBLE_VERSION STREQUAL "")
-    message(FATAL_ERROR "BIBBLE_VERSION is required. Pass -DBIBBLE_VERSION=x.y.z")
+    set(BIBBLE_VERSION "0.0.0")
 endif()
 
 project(Bibble VERSION "${BIBBLE_VERSION}")
